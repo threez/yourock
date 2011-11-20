@@ -1,0 +1,12 @@
+<ul class="albums">
+  <% @playlists.each do |list| %>
+  <li>
+    <a href="/playlist/<%= list.id %>"><%= list.name %></a>
+  </li>
+  <% end %>
+  <% @albums.each do |name| %>
+  <li>
+    <a href="/album/<%= name %>"><%= name %></a>
+  </li>
+  <% end %>
+</ul>

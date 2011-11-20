@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1" />
+
+    <meta name="robots" content="index,follow" />
+    <meta name="description" content="" />
+    <meta name="author" content="vincentlandgraf" />
+    <meta name="keywords" content="" />
+    <meta name="date" content="2011-11-19T20:39:52+0100" />
+    <meta http-equiv="Content-language" content="de" />
+    
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <link rel="stylesheet" type="text/css" href="/skin/jplayer.blue.monday.css" />
+    
+    <script type="text/javascript" charset="utf-8"
+            src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js">
+    </script>
+    <script type="text/javascript" charset="utf-8"
+            src="js/jquery.jplayer.min.js"></script>
+    <script type="text/javascript" charset="utf-8">
+      $(function() {
+        var $albumsLinks = $(".albums a");
+        $albumsLinks.click(function() {
+          var $elem = $(this);
+          $albumsLinks.removeClass("active");
+          $elem.addClass("active");
+          $("#content").load(escape($elem.attr("href")));
+          return false;
+        });
+        
+        $(".album a").live("click", function() {
+          $(".album a").removeClass("active");
+          $(this).addClass("active");
+          var player = $("#jquery_jplayer_1");
+          player.jPlayer("setMedia", {
+            m4a: $(this).attr('href')
+          });
+          player.jPlayer("play");
+          return false;
+        });
+        
+        $("#jquery_jplayer_1").jPlayer({
+          swfPath:"/js",
+          supplied: "m4a, oga"
+        });
+        
+        $("audio").bind('ended', function() {
+          // search for next song and play it
+          console.log("next song");
+          $next = $(".album a[data-prev=#" + $(".album a.active").attr("id") + "]");
+          $next.click();
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <%= erb :albums %>
+    <div id="container">
+      <%= erb :player %>
+      <div id="content"></div>
+    </div>
+  </body>
+</html>

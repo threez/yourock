@@ -1,0 +1,192 @@
+#!/usr/bin/env ruby
+if ARGV.size != 2
+  STDERR.puts "usage: #{$0} <xml-file> <db-file>"
+  exit 1
+end
+
+require "rubygems"
+require "bundler/setup"
+require "sequel"
+
+xml_file_path = ARGV.shift
+db_file_path = ARGV.shift
+
+File.unlink(db_file_path) if File.exists?(db_file_path)
+
+puts "connect to database..."
+DB = Sequel.connect("sqlite://#{db_file_path}")
+DB.pragma_set :cache_size, 1024**3 * 10
+DB.synchronous = :off
+DB.pragma_set :temp_store, 2
+
+puts "create tables..."
+# create the songs table
+DB.create_table :tracks do
+  primary_key :id
+  Fixnum :size
+  Fixnum :total_time
+  Fixnum :year
+  Fixnum :bit_rate
+  Fixnum :sample_rate
+  Fixnum :play_count
+  Fixnum :play_date
+  Fixnum :artwork_count
+  Fixnum :file_folder_count
+  Fixnum :library_folder_count
+  Fixnum :track_number
+  Fixnum :rating
+  Fixnum :album_rating
+  Fixnum :skip_count
+  Fixnum :volume_adjustment
+  Fixnum :disc_number
+  Fixnum :disc_count
+  Fixnum :track_count
+  Fixnum :episode_order
+  Fixnum :video_width
+  Fixnum :video_height
+  Fixnum :file_type
+  Fixnum :bpm
+  Fixnum :start_time
+  Fixnum :track_id
+
+  String :comments
+  String :grouping
+  String :track_type
+  String :location
+  String :equalizer
+  String :sort_name
+  String :sort_album_artist
+  String :sort_composer
+  String :series
+  String :name
+  String :artist
+  String :album
+  String :genre
+  String :kind
+  String :sort_artist
+  String :album_artist
+  String :composer
+  String :sort_album
+  String :content_rating
+  String :persistent_id
+
+  Time :release_date
+  Time :date_modified
+  Time :date_added
+  Time :play_date_utc
+  Time :skip_date
+
+  Boolean :album_rating_computed, :default => false
+  Boolean :compilation, :default => false
+  Boolean :has_video, :default => false
+  Boolean :hd, :default => false
+  Boolean :tv_show, :default => false
+  Boolean :part_of_gapless_album, :default => false
+  Boolean :explicit, :default => false
+  Boolean :purchased, :default => false
+  Boolean :protected, :default => false
+  Boolean :movie, :default => false
+  Boolean :podcast, :default => false
+  Boolean :itunesu, :default => false
+  Boolean :unplayed, :default => false
+  Boolean :music_video, :default => false
+  Boolean :clean, :default => false
+end
+
+DB.create_table :playlists_tracks do
+  Fixnum :playlist_id
+  Fixnum :track_id
+end
+
+DB.create_table :playlists do
+  primary_key :id
+  String :name
+  String :playlist_persistent_id
+  String :smart_info
+  String :parent_persistent_id
+  Fixnum :playlist_id
+  Fixnum :distinguished_kind
+  Fixnum :genius_track_id
+  String :smart_criteria
+  Boolean :itunesu
+  Boolean :all_item
+  Boolean :visible
+  Boolean :all_items
+  Boolean :master
+  Boolean :audiobooks
+  Boolean :purchased_music
+  Boolean :podcasts
+  Boolean :music
+  Boolean :tv_shows
+  Boolean :movies
+  Boolean :folder
+  Boolean :party_shuffle
+  Boolean :books
+end
+
+require File.join(File.dirname(__FILE__), "track")
+require File.join(File.dirname(__FILE__), "playlist")
+require 'plist'
+require 'pp'
+
+puts "parse the xml..."
+tree = Plist::parse_xml(xml_file_path)
+missing = {}
+
+puts "tree:"
+puts "  - " + tree.keys.join("\n  - ")
+
+puts "import tracks to database..."
+DB.transaction do
+  tree['Tracks'].each do |key, value|
+    print "."
+    track = Track.new
+    value.each do |key, value|
+      begin
+        key = "#{key.downcase.gsub(' ', '_')}="
+        track.send(key, value)
+      rescue NoMethodError => ex
+        puts "Missing: #{key} (#{value})"
+        missing[key] = value
+      end
+    end
+    track.save
+  end
+end
+pp missing
+
+puts "adding indices..."
+
+DB.execute("create index tracks_name_index on tracks (name)")
+DB.execute("create index tracks_album_index on tracks (album)")
+DB.execute("create index tracks_track_id_index on tracks (track_id)")
+
+missing = {}
+
+puts "import playlists to database..."
+DB.transaction do
+  tree['Playlists'].each do |value|
+    print "."
+    if value
+      list = Playlist.create
+      value.each do |key, value|
+        begin
+          key = "#{key.downcase.gsub(' ', '_')}="
+          list.send(key, value)
+        rescue NoMethodError => ex
+          puts "Missing: #{key} (#{value})"
+          missing[key] = value
+        end
+      end
+      list.save
+    else
+      puts "(#{key} has no data)"
+    end
+  end
+end
+
+DB.execute("create unique index playlists_tracks_ids_index on playlists_tracks (playlist_id, track_id")
+DB.execute("create index playlists_name_id_index on playlists (name)")
+
+pp missing
+

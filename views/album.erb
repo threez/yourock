@@ -1,0 +1,16 @@
+<div class="album">
+  <h1><%= @name %></h1>
+
+  <ol class="tracks">
+    <% id = "last" %>
+    <% @tracks.each do |track| %>
+    <li>
+      <a id="track-<%= track.id %>" data-prev="#track-<%= id %>"
+         href="<%= track.path %>">
+        <%= track.name %>
+      </a>
+    </li>
+    <% id = track.id %>
+    <% end %>
+  </ol>
+</div>
